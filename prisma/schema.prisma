@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionStatus {
+  PENDING
+  PAYMENT_RECEIVED
+  IN_ESCROW
+  COMPLETED
+  DISPUTED
+  FUNDS_RELEASED
+  REFUNDED
+  CANCELLED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  country       String
+  trustapUserId String?  @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  buyerTransactions  EscrowTransaction[] @relation("BuyerTransactions")
+  sellerTransactions EscrowTransaction[] @relation("SellerTransactions")
+}
+
+model EscrowTransaction {
+  id                   String            @id @default(uuid())
+  trustapTransactionId String?           @unique
+  amount               Float
+  currency             String            @default("EUR")
+  description          String?
+  status               TransactionStatus @default(PENDING)
+  paymentUrl           String?
+  chargeAmount         Float?
+  disputeReason        String?
+  buyerId              String
+  sellerId             String
+  buyer                User              @relation("BuyerTransactions", fields: [buyerId], references: [id])
+  seller               User              @relation("SellerTransactions", fields: [sellerId], references: [id])
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  webhookEvents        WebhookEvent[]
+}
+
+model WebhookEvent {
+  id            String            @id @default(uuid())
+  eventType     String
+  payload       Json
+  transactionId String
+  transaction   EscrowTransaction @relation(fields: [transactionId], references: [id])
+  processedAt   DateTime          @default(now())
+}
